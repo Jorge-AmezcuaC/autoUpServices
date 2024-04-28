@@ -1,25 +1,24 @@
 #!/bin/bash
 
-# Configura la interfaz de red
-sudo ip addr add 192.168.101.222/24 dev enp0s3
-sudo ip route add default via 192.168.101.1 dev enp0s1
-
-# Configurar el servidor DNS
-echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf > /dev/null
-
 # Actualizar los repositorios e instalar vsftpd (servidor FTP) y apache2 (servidor Apache HTTP)
-sudo apt update
-sudo apt install -y vsftpd apache2
+apt update
+apt install -y vsftpd apache2 bc
 
 # Configurar vsftpd para permitir escritura y subida de archivos al directorio del servidor web
-sudo sed -i 's/#write_enable=YES/write_enable=YES/' /etc/vsftpd.conf
-sudo sed -i '$a\local_root=/var/www/html' /etc/vsftpd.conf
-sudo systemctl restart vsftpd
+sed -i 's/#write_enable=YES/write_enable=YES/' /etc/vsftpd.conf
+sed -i '$a\local_root=/var/www/html' /etc/vsftpd.conf
+sed -i 's/#allow_writeable_chroot=YES/allow_writeable_chroot=YES/' /etc/vsftpd.conf
+sed -i '$a\annon_root=/var/www/html' /etc/vsftpd.conf
+systemctl restart vsftpd
 
 # Configurar Apache HTTP para utilizar el método Worker MPM
-sudo sed -i 's/^\(.*\)\(mpm_prefork\|mpm_event\)/# \1\2/' /etc/apache2/apache2.conf
-sudo sed -i '/# mpm_worker/s/# //' /etc/apache2/apache2.conf
-sudo systemctl restart apache2
+sed -i 's/^\(.*\)\(mpm_prefork\|mpm_event\)/# \1\2/' /etc/apache2/apache2.conf
+sed -i '/# mpm_worker/s/# //' /etc/apache2/apache2.conf
+systemctl restart apache2
+
+#Configurar Permisos de carpetas
+chown -R ftp:www-data /var/www/html
+chmod -R 777 /var/www/html
 
 # Monitorear el uso del CPU cada 5 minutos
 while true; do
@@ -28,7 +27,7 @@ while true; do
     # Si el uso del CPU supera el 80%, iniciar otra instancia de Apache HTTP (Worker MPM)
     if [ "$(echo "$CPU_USAGE > 80" | bc)" -eq 1 ]; then
         # Reiniciar Apache HTTP
-        sudo systemctl restart apache2
+        systemctl restart apache2
         echo "Se ha iniciado otra instancia de Apache HTTP para balancear la carga debido al alto uso del CPU."
     fi
     
